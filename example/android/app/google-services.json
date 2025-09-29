@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "458520279291",
+    "project_id": "update-manager-example",
+    "storage_bucket": "update-manager-example.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:458520279291:android:88bd4138019f4068d9185e",
+        "android_client_info": {
+          "package_name": "com.update_manager.example"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAmhr813ec_2d8YnkX1mxmul6YSb0-145I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

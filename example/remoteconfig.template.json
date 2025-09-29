@@ -1,0 +1,10 @@
+{
+  "parameters": {
+    "min_required_version": {
+      "defaultValue": { "value": "1.0.0" }
+    },
+    "latest_version": {
+      "defaultValue": { "value": "1.0.0" }
+    }
+  }
+}
