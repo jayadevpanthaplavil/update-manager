@@ -5,8 +5,6 @@ homepage: "https://github.com/jayadevpanthaplavil/update-manager"
 repository: "https://github.com/jayadevpanthaplavil/update-manager"
 issue_tracker: "https://github.com/jayadevpanthaplavil/update-manager/issues"
 
-publish_to: "none"
-
 environment:
   sdk: ">=3.0.0 <4.0.0"
   flutter: ">=3.10.0"
