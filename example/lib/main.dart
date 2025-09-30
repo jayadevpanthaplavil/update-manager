@@ -35,7 +35,6 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   RemoteConfigService? _remoteService;
 
-
   @override
   void initState() {
     super.initState();
@@ -66,7 +65,6 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {});
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -79,10 +77,6 @@ class _MyHomePageState extends State<MyHomePage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             Text("Update Type: ${_remoteService?.updateTypeStatus}"),
-            Text(
-              '',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
           ],
         ),
       ),

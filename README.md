@@ -1,39 +1,124 @@
-<!--
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# update_manager
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/tools/pub/writing-package-pages).
+A Flutter package for managing app updates with **Firebase Remote Config**.  
+It helps you implement **force updates** and **optional updates** easily, so users always stay on the right app version.
 
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/to/develop-packages).
--->
+---
 
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
+## ✨ Features
+- 🚀 Force update when a critical version is required
+- 📢 Optional update when a newer version is available
+- 🔧 Configurable via Firebase Remote Config
+- 🎯 Simple integration with callback support
+- 🛠️ Example app included
 
-## Features
+---
 
-TODO: List what your package can do. Maybe include images, gifs, or videos.
+## 📦 Installation
 
-## Getting started
+Add this to your `pubspec.yaml`:
 
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
-
-## Usage
-
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder.
-
-```dart
-const like = 'sample';
+```yaml
+dependencies:
+  update_manager: ^1.0.0
 ```
 
-## Additional information
+Run:
+```sh
+flutter pub get
+```
 
-TODO: Tell users more about the package: where to find more information, how to
-contribute to the package, how to file issues, what response they can expect
-from the package authors, and more.
+---
+
+## 🚀 Usage
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:update_manager/update_manager.dart';
+
+class UpdateExampleWidget extends StatefulWidget {
+  const UpdateExampleWidget({super.key});
+
+  @override
+  State<UpdateExampleWidget> createState() => _UpdateExampleWidgetState();
+}
+
+class _UpdateExampleWidgetState extends State<UpdateExampleWidget> {
+  late final RemoteConfigService _remoteService;
+  UpdateType _updateType = UpdateType.none;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeUpdateService();
+  }
+
+  Future<void> _initializeUpdateService() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+
+    _remoteService = RemoteConfigService(
+      packageInfo: packageInfo,
+      onUpdate: (type) {
+        setState(() {
+          _updateType = type;
+        });
+
+        switch (type) {
+          case UpdateType.force:
+          // Show force update dialog
+            break;
+          case UpdateType.optional:
+          // Show optional update suggestion
+            break;
+          case UpdateType.none:
+          // No update available
+            break;
+        }
+      },
+    );
+
+    await _remoteService.initialiseAndCheck();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text('Update Status: $_updateType'),
+    );
+  }
+}
+
+```
+
+
+---
+
+## ⚙️ Firebase Setup
+
+1. Enable **Remote Config** in Firebase Console
+2. Add these default parameters:
+
+| Key                    | Example Value | Description                     |
+|------------------------|---------------|---------------------------------|
+| `min_required_version` | `1.0.0`       | Minimum app version allowed     |
+| `latest_version`       | `1.1.0`       | Latest available version        |
+
+
+---
+
+## 📱 Example
+
+See the [`example/`](example) folder for a full demo project.
+
+---
+
+## Future Enhancements
+
+- Planned integration with Shorebird for patch updates.
+
+---
+
+
+## 📄 License
+This project is licensed under the [MIT License](LICENSE).
