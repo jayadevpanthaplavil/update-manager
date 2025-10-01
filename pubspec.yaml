@@ -16,6 +16,9 @@ dependencies:
   # Firebase
   firebase_remote_config: ^6.0.2
 
+  # Shorebird
+  shorebird_code_push: ^2.0.5
+
   # App Info
   package_info_plus: ^9.0.0
 

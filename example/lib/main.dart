@@ -33,7 +33,10 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  RemoteConfigService? _remoteService;
+  UpdateManager? _updateManager;
+  UpdateType _currentUpdateType = UpdateType.none;
+  UpdateSource? _currentUpdateSource;
+  int? _patchNumber;
 
   @override
   void initState() {
@@ -44,25 +47,33 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _initialize() async {
     final packageInfo = await PackageInfo.fromPlatform();
 
-    _remoteService = RemoteConfigService(
+    _updateManager = UpdateManager(
+      enableShorebird: true,
       packageInfo: packageInfo,
-      onUpdate: (type) async {
+      onUpdate: ({
+        required UpdateType type,
+        UpdateSource source = UpdateSource.release,
+        int? patchNumber,
+      }) async {
         if (!mounted) return;
-        setState(() {}); // rebuild UI when update occurs
-        debugPrint("Update type changed: $type");
+        setState(() {
+          _currentUpdateType = type;
+          _currentUpdateSource = source;
+          _patchNumber = patchNumber;
+        });
+        debugPrint(
+          "Update detected → Type: $type, Source: $source, Patch: $patchNumber",
+        );
       },
     );
 
     try {
-      await _remoteService?.initialiseAndCheck();
+      await _updateManager?.initialise();
     } catch (e) {
-      debugPrint("RemoteConfig init error: $e");
+      debugPrint("UpdateManager init error: $e");
     }
 
-    debugPrint("Current update status: ${_remoteService?.updateTypeStatus}");
-
-    if (!mounted) return;
-    setState(() {});
+    debugPrint("Initial update status: ${_updateManager?.updateTypeStatus}");
   }
 
   @override
@@ -76,9 +87,21 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            Text("Update Type: ${_remoteService?.updateTypeStatus}"),
+            Text("Update Type: $_currentUpdateType"),
+            const SizedBox(height: 8),
+            Text("Update Source: ${_currentUpdateSource ?? '-'}"),
+            const SizedBox(height: 8),
+            Text("Patch Number: ${_patchNumber ?? '-'}"),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          // Manually check Shorebird patch updates
+          await _updateManager?.checkShorebirdPatch();
+        },
+        child: const Icon(Icons.refresh),
+        tooltip: "Check for Shorebird patch",
       ),
     );
   }

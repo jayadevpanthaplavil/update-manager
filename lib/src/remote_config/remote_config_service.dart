@@ -1,21 +1,17 @@
-
-
+import 'dart:convert';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:update_manager/src/remote_config/remote_config_variables.dart';
-
+import '../enums/update_source.dart';
+import '../update_manager.dart';
 import '../enums/update_type.dart';
 import '../utils/version_compare.dart';
+import 'remote_config_variables.dart';
 
-typedef UpdateCallback = Future<void> Function(UpdateType type);
-
-/// Service that handles update checks via Firebase Remote Config
 class RemoteConfigService {
   final FirebaseRemoteConfig _remoteConfig = FirebaseRemoteConfig.instance;
   final PackageInfo _packageInfo;
-  final UpdateCallback? onUpdate;
-
+  final UpdateManagerCallback? onUpdate;
 
   UpdateType _lastUpdateType = UpdateType.none;
   UpdateType get updateTypeStatus => _lastUpdateType;
@@ -25,7 +21,6 @@ class RemoteConfigService {
     this.onUpdate,
   }) : _packageInfo = packageInfo;
 
-  /// Initialize Remote Config and perform the first update check
   Future<void> initialiseAndCheck() async {
     try {
       await _remoteConfig.setConfigSettings(RemoteConfigSettings(
@@ -36,43 +31,69 @@ class RemoteConfigService {
       await _remoteConfig.setDefaults({
         RemoteConfigVariables.minRequiredVersion: _packageInfo.version,
         RemoteConfigVariables.latestVersion: _packageInfo.version,
+        RemoteConfigVariables.patchEnabled: false,
+        RemoteConfigVariables.patchInfo: '{}',
       });
 
-      // Fetch + activate
       await _remoteConfig.fetchAndActivate();
 
-      // Listen for remote config changes
       _remoteConfig.onConfigUpdated.listen((_) async {
         await _remoteConfig.fetchAndActivate();
         await _handleUpdateCheck();
       });
 
-      // Initial check
       await _handleUpdateCheck();
     } catch (e) {
-      debugPrint("RemoteConfig error: $e");
+      debugPrint("RemoteConfigService init error: $e");
     }
   }
 
-  /// Handles update checking logic
   Future<void> _handleUpdateCheck() async {
     final currentVersion = _packageInfo.version;
     final minRequired =
     _remoteConfig.getString(RemoteConfigVariables.minRequiredVersion);
     final latest =
     _remoteConfig.getString(RemoteConfigVariables.latestVersion);
-
-    debugPrint(
-        "AppVersionCheck → current: $currentVersion, minRequired: $minRequired, latest: $latest");
+    final patchEnabled =
+    _remoteConfig.getBool(RemoteConfigVariables.patchEnabled);
+    final patchesJson = _remoteConfig.getString(RemoteConfigVariables.patchInfo);
 
     final updateType =
     VersionCompare.getUpdateType(currentVersion, minRequired, latest);
 
-    // Store the status
+    UpdateSource source = UpdateSource.release;
+    int? patchNumber;
+
+    if (patchEnabled && patchesJson != null && patchesJson.isNotEmpty) {
+      patchNumber = _getPatchNumberFromJson(patchesJson, currentVersion);
+      if (currentVersion == latest && patchNumber != null && patchNumber > 0) {
+        source = UpdateSource.patch;
+      }
+    }
+
+
     _lastUpdateType = updateType;
 
     if (onUpdate != null) {
-      await onUpdate!(updateType);
+      await onUpdate!(
+        type: updateType,
+        source: source,
+        patchNumber: patchNumber,
+      );
+    }
+  }
+
+  int? _getPatchNumberFromJson(String? patchesJson, String currentVersion) {
+    if (patchesJson == null || patchesJson.isEmpty) return null;
+    try {
+      final Map<String, dynamic> decoded = jsonDecode(patchesJson);
+
+      // Since the JSON is a string inside a string, decode again
+      final Map<String, dynamic> versionMap = jsonDecode(decoded['value'] ?? '{}');
+
+      return versionMap[currentVersion] as int?;
+    } catch (_) {
+      return null;
     }
   }
 }
