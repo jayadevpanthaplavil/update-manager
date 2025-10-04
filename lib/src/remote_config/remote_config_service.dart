@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:update_manager/src/shorebird/shorebird_service.dart';
 import '../enums/update_source.dart';
 import '../update_manager.dart';
 import '../enums/update_type.dart';
@@ -12,6 +13,7 @@ class RemoteConfigService {
   final FirebaseRemoteConfig _remoteConfig = FirebaseRemoteConfig.instance;
   final PackageInfo _packageInfo;
   final UpdateManagerCallback? onUpdate;
+  final ShorebirdService? shorebirdService;
 
   UpdateType _lastUpdateType = UpdateType.none;
   UpdateType get updateTypeStatus => _lastUpdateType;
@@ -19,6 +21,7 @@ class RemoteConfigService {
   RemoteConfigService({
     required PackageInfo packageInfo,
     this.onUpdate,
+    this.shorebirdService
   }) : _packageInfo = packageInfo;
 
   Future<void> initialiseAndCheck() async {
@@ -63,14 +66,15 @@ class RemoteConfigService {
 
     UpdateSource source = UpdateSource.release;
     int? patchNumber;
+    int? currentPatchNumber;
 
     if (patchEnabled && patchesJson != null && patchesJson.isNotEmpty) {
       patchNumber = _getPatchNumberFromJson(patchesJson, currentVersion);
-      if (currentVersion == latest && patchNumber != null && patchNumber > 0) {
+      currentPatchNumber = await shorebirdService?.readCurrentPatch();
+      if (patchNumber != null && patchNumber > 0 && patchNumber != currentPatchNumber) {
         source = UpdateSource.patch;
       }
     }
-
 
     _lastUpdateType = updateType;
 
@@ -85,15 +89,17 @@ class RemoteConfigService {
 
   int? _getPatchNumberFromJson(String? patchesJson, String currentVersion) {
     if (patchesJson == null || patchesJson.isEmpty) return null;
-    try {
-      final Map<String, dynamic> decoded = jsonDecode(patchesJson);
 
-      // Since the JSON is a string inside a string, decode again
-      final Map<String, dynamic> versionMap = jsonDecode(decoded['value'] ?? '{}');
+    try {
+      // Direct decode since Firebase returns JSON correctly
+      final Map<String, dynamic> versionMap = jsonDecode(patchesJson);
+      debugPrint("Patch map: $versionMap");
 
       return versionMap[currentVersion] as int?;
-    } catch (_) {
+    } catch (e) {
+      debugPrint("Patch parse error: $e");
       return null;
     }
   }
+
 }
