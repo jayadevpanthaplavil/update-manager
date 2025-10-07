@@ -68,7 +68,7 @@ jobs:
         run: flutter analyze
 
       - name: Format code
-        run: dart format --fix .
+        run: dart format .
 
       - name: Run tests
         run: flutter test
