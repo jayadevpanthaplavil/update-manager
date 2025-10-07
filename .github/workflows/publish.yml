@@ -3,7 +3,7 @@ name: Publish to pub.dev
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'   # matches v1.2.3 ; must align with tag-pattern on pub.dev (v{{version}})
+      - 'v[0-9]+.[0-9]+.[0-9]+*' # matches v1.2.3 ; must align with tag-pattern on pub.dev (v{{version}})
 
 jobs:
   publish:
@@ -11,8 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write        # required for OIDC-based auth to pub.dev
-    environment: pub.dev     # include only if you've required a GitHub environment named "pub.dev" on pub.dev
+      id-token: write # required for OIDC-based auth to pub.dev
+    environment: pub.dev # include only if you've required a GitHub environment named "pub.dev" on pub.dev
+
     steps:
       - name: Checkout (fetch full history & tags)
         uses: actions/checkout@v4
@@ -62,6 +63,18 @@ jobs:
 
       - name: Get dependencies
         run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Format code
+        run: dart format --fix .
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Check Publish Warnings (dry-run)
+        run: dart pub publish --dry-run
 
       - name: Publish to pub.dev
         run: flutter pub publish --force
