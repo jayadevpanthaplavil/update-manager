@@ -1,10 +1,32 @@
 {
   "parameters": {
+    "patch_info": {
+      "defaultValue": {
+        "value": "{ \"1.0.25\": { \"stable\": 1, \"beta\":0, \"staging\": 0 }, \"1.0.1\": { \"stable\": 1, \"beta\": 2, \"staging\": 3 } }"
+      },
+      "description": "Patch numbers per version and track. Format: { \"version\": { \"track\": patchNumber } }",
+      "valueType": "STRING"
+    },
+    "patch_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Global flag to enable/disable patch checking",
+      "valueType": "STRING"
+    },
     "min_required_version": {
-      "defaultValue": { "value": "1.0.0" }
+      "defaultValue": {
+        "value": "1.0.0"
+      },
+      "description": "Minimum app version required to use the app",
+      "valueType": "STRING"
     },
     "latest_version": {
-      "defaultValue": { "value": "1.0.0" }
+      "defaultValue": {
+        "value": "1.0.29"
+      },
+      "description": "Latest available version in stores",
+      "valueType": "STRING"
     }
   }
 }

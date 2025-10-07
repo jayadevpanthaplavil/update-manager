@@ -1,13 +1,14 @@
 # update_manager
 
-A Flutter package for managing app updates with **Firebase Remote Config**.  
-It helps you implement **force updates** and **optional updates** easily, so users always stay on the right app version.
+A Flutter package for managing app updates with **Firebase Remote Config** and **Shorebird patch updates**.  
+It helps you implement **force updates**, **optional updates**, and **patch updates** easily.
 
 ---
 
 ## ✨ Features
 - 🚀 Force update when a critical version is required
 - 📢 Optional update when a newer version is available
+- ⚡ Patch updates via Shorebird
 - 🔧 Configurable via Firebase Remote Config
 - 🎯 Simple integration with callback support
 - 🛠️ Example app included
@@ -20,10 +21,11 @@ Add this to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  update_manager: ^1.0.0
+  update_manager: ^1.1.0
 ```
 
 Run:
+
 ```sh
 flutter pub get
 ```
@@ -37,6 +39,25 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:update_manager/update_manager.dart';
 
+const UpdateTrack kAppUpdateTrack = UpdateTrack.stable;
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: const UpdateExampleWidget(),
+    );
+  }
+}
+
 class UpdateExampleWidget extends StatefulWidget {
   const UpdateExampleWidget({super.key});
 
@@ -45,8 +66,8 @@ class UpdateExampleWidget extends StatefulWidget {
 }
 
 class _UpdateExampleWidgetState extends State<UpdateExampleWidget> {
-  late final RemoteConfigService _remoteService;
-  UpdateType _updateType = UpdateType.none;
+  UpdateManager? _updateManager;
+  UpdateType _currentUpdateType = UpdateType.none;
 
   @override
   void initState() {
@@ -57,53 +78,58 @@ class _UpdateExampleWidgetState extends State<UpdateExampleWidget> {
   Future<void> _initializeUpdateService() async {
     final packageInfo = await PackageInfo.fromPlatform();
 
-    _remoteService = RemoteConfigService(
+    _updateManager = UpdateManager(
+      enableShorebird: true,
       packageInfo: packageInfo,
-      onUpdate: (type) {
-        setState(() {
-          _updateType = type;
-        });
-
-        switch (type) {
-          case UpdateType.force:
-          // Show force update dialog
-            break;
-          case UpdateType.optional:
-          // Show optional update suggestion
-            break;
-          case UpdateType.none:
-          // No update available
-            break;
-        }
+      onUpdate: ({
+        required UpdateType type,
+        UpdateSource source = UpdateSource.release,
+        int? patchNumber,
+      }) async {
+        setState(() => _currentUpdateType = type);
       },
     );
 
-    await _remoteService.initialiseAndCheck();
+    await _updateManager?.initialise(shorebirdTrack: kAppUpdateTrack);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Text('Update Status: $_updateType'),
+    return Scaffold(
+      body: Center(child: Text('Update Status: $_currentUpdateType')),
     );
   }
 }
-
 ```
-
 
 ---
 
 ## ⚙️ Firebase Setup
 
-1. Enable **Remote Config** in Firebase Console
-2. Add these default parameters:
+1. Enable **Remote Config** in Firebase Console.
+2. Add the following default parameters:
 
-| Key                    | Example Value | Description                     |
-|------------------------|---------------|---------------------------------|
-| `min_required_version` | `1.0.0`       | Minimum app version allowed     |
-| `latest_version`       | `1.1.0`       | Latest available version        |
+| Key                    | Example Value | Description                                                                            |
+|------------------------|---------------|----------------------------------------------------------------------------------------|
+| `min_required_version` | `1.0.0`       | Minimum app version allowed                                                            |
+| `latest_version`       | `1.1.0`       | Latest available version                                                               |
+| `patch_enabled`        | `true`        | Enable/disable patch checking                                                          |
+| `patch_info`           | JSON string   | Patch numbers per version and track. Format: `{ "version": { "track": patchNumber } }` |
 
+**Example `patch_info` value:**
+
+```json
+{
+  "1.0.25": { "stable": 1, "beta":0, "staging": 0 },
+  "1.0.1": { "stable": 1, "beta": 2, "staging": 3 }
+}
+```
+
+---
+
+## 📄 Changelog
+
+See the [Changelog](CHANGELOG.md)
 
 ---
 
@@ -113,12 +139,7 @@ See the [`example/`](example) folder for a full demo project.
 
 ---
 
-## Future Enhancements
-
-- Planned integration with Shorebird for patch updates.
-
----
-
-
 ## 📄 License
+
 This project is licensed under the [MIT License](LICENSE).
+

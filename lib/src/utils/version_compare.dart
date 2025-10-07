@@ -1,4 +1,3 @@
-
 import '../enums/update_type.dart';
 
 /// Utility for comparing versions and determining update type
