@@ -54,10 +54,11 @@ jobs:
             exit 1
           fi
 
-      - name: Setup Flutter
+      - name: Set Up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: stable
+          flutter-version: '3.35.4'
+          channel: 'stable'
 
       - name: Get dependencies
         run: flutter pub get
