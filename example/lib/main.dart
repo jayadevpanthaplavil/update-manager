@@ -446,20 +446,22 @@ class _MyHomePageState extends State<MyHomePage> {
           const SizedBox(height: 16),
         ],
       ),
-      floatingActionButton: (_shorebirdStatus != ShorebirdUpdateStatus.checking) ?  FloatingActionButton.extended(
-        onPressed: (_shorebirdStatus == ShorebirdUpdateStatus.checking)
-            ? null
-            : _checkForUpdate,
-        tooltip: 'Check for update',
-        icon: (_shorebirdStatus == ShorebirdUpdateStatus.checking)
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.refresh),
-        label: const Text('Check Update'),
-      ) : null,
+      floatingActionButton: (_shorebirdStatus != ShorebirdUpdateStatus.checking)
+          ? FloatingActionButton.extended(
+              onPressed: (_shorebirdStatus == ShorebirdUpdateStatus.checking)
+                  ? null
+                  : _checkForUpdate,
+              tooltip: 'Check for update',
+              icon: (_shorebirdStatus == ShorebirdUpdateStatus.checking)
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh),
+              label: const Text('Check Update'),
+            )
+          : null,
     );
   }
 

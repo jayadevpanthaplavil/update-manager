@@ -1,11 +1,8 @@
-
-
 // Expose the main manager
 export 'src/update_manager.dart';
 
 // Expose Shorebird
 export 'package:shorebird_code_push/shorebird_code_push.dart';
-
 
 // Export models & enums
 export 'src/enums/update_type.dart';

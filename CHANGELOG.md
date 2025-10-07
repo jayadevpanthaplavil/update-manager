@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2025-10-07
+### Added
+- Shorebird patch update functionality integrated alongside Firebase Remote Config.
+- Support for specifying Shorebird update tracks.
+- Improved update handling combining both Remote Config and Shorebird services.
+
+### Changed
+- Updated Remote Config template to include Shorebird-related parameters.
+- Enhanced internal flow for checking updates from multiple sources.
+
 ## [1.0.0] - 2025-09-30
 ### Added
 - Initial release of `update_manager`.
