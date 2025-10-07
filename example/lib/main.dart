@@ -41,8 +41,8 @@ class _MyHomePageState extends State<MyHomePage> {
   UpdateSource? _currentUpdateSource;
   int? _patchNumber;
   ShorebirdUpdateStatus _shorebirdStatus = ShorebirdUpdateStatus.idle;
-  String? _errorMessage;
-  UpdateTrack _currentTrack = kAppUpdateTrack;
+  // String? _errorMessage;
+  final UpdateTrack _currentTrack = kAppUpdateTrack;
   String _currentVersion = '';
   int? _currentPatchNumber;
 
@@ -101,7 +101,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
             setState(() {
               _shorebirdStatus = status;
-              _errorMessage = errorMessage;
+              // _errorMessage = errorMessage;
               if (patchNumber != null) _patchNumber = patchNumber;
             });
 
