@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shorebird_code_push/shorebird_code_push.dart';
+
 import 'remote_config/remote_config_service.dart';
 import 'shorebird/shorebird_service.dart';
 import 'enums/update_type.dart';
@@ -8,16 +9,16 @@ import 'enums/update_source.dart';
 import 'enums/shorebird_update_status.dart';
 
 typedef UpdateManagerCallback = Future<void> Function({
-required UpdateType type,
-required UpdateSource source,
-int? patchNumber,
+  required UpdateType type,
+  required UpdateSource source,
+  int? patchNumber,
 });
 
 typedef ShorebirdStatusCallback = Future<void> Function({
-required ShorebirdUpdateStatus status,
-UpdateType? type,
-int? patchNumber,
-String? errorMessage,
+  required ShorebirdUpdateStatus status,
+  UpdateType? type,
+  int? patchNumber,
+  String? errorMessage,
 });
 
 class UpdateManager {
@@ -29,14 +30,17 @@ class UpdateManager {
   late final RemoteConfigService _remoteConfigService;
   final ShorebirdService? _shorebirdService;
 
+  UpdateTrack _currentTrack = UpdateTrack.stable;
   UpdateType _lastUpdateType = UpdateType.none;
   UpdateType get updateTypeStatus => _lastUpdateType;
 
   ShorebirdUpdateStatus _shorebirdStatus = ShorebirdUpdateStatus.idle;
   ShorebirdUpdateStatus get shorebirdStatus => _shorebirdStatus;
 
-  // Expose shorebirdService for direct access if needed
   ShorebirdService? get shorebirdService => _shorebirdService;
+
+  // Add concurrency control at UpdateManager level
+  bool _isCheckingShorebird = false;
 
   UpdateManager({
     required PackageInfo packageInfo,
@@ -52,41 +56,55 @@ class UpdateManager {
     );
   }
 
-  /// Entry point: initialise Remote Config + Shorebird
   Future<void> initialise(
       {UpdateTrack shorebirdTrack = UpdateTrack.stable}) async {
-    // 1. Remote Config updates
-    await _remoteConfigService.initialiseAndCheck();
+    _currentTrack = shorebirdTrack;
+    await _remoteConfigService.initialiseAndCheck(track: _currentTrack);
 
-    // 2. Shorebird patch updates (only if no patch detected by Remote Config)
-    if (_shorebirdService != null && _shorebirdService!.isAvailable) {
-      // Only check Shorebird directly if Remote Config didn't already detect a patch
+    if (enableShorebird &&
+        _shorebirdService != null &&
+        _shorebirdService!.isAvailable) {
       if (_lastUpdateType == UpdateType.none) {
         await checkShorebirdPatch(track: shorebirdTrack);
       }
     }
   }
 
-  /// Check Shorebird patch updates manually
   Future<void> checkShorebirdPatch(
       {UpdateTrack track = UpdateTrack.stable}) async {
-    if (_shorebirdService == null || !_shorebirdService!.isAvailable) {
+    // Prevent concurrent checks at UpdateManager level
+    if (_isCheckingShorebird) {
+      debugPrint(
+          'UpdateManager: Shorebird check already in progress, ignoring request');
+      return;
+    }
+
+    if (!enableShorebird ||
+        _shorebirdService == null ||
+        !_shorebirdService!.isAvailable) {
       await _handleShorebirdStatusChange(
         status: ShorebirdUpdateStatus.unavailable,
       );
       return;
     }
 
-    await _shorebirdService!.checkForUpdate(
-      track: track,
-      onStatusChange: _handleShorebirdStatusChange,
-    );
+    _isCheckingShorebird = true;
+
+    try {
+      await _shorebirdService!.checkForUpdate(
+        track: track,
+        onStatusChange: _handleShorebirdStatusChange,
+      );
+    } finally {
+      _isCheckingShorebird = false;
+    }
   }
 
-  /// Download Shorebird patch
   Future<void> downloadShorebirdPatch(
       {UpdateTrack track = UpdateTrack.stable}) async {
-    if (_shorebirdService == null || !_shorebirdService!.isAvailable) {
+    if (!enableShorebird ||
+        _shorebirdService == null ||
+        !_shorebirdService!.isAvailable) {
       await _handleShorebirdStatusChange(
         status: ShorebirdUpdateStatus.unavailable,
       );
@@ -99,7 +117,6 @@ class UpdateManager {
     );
   }
 
-  /// Central callback handler for both Remote Config & Shorebird
   Future<void> _handleUpdateCallback({
     required UpdateType type,
     UpdateSource source = UpdateSource.release,
@@ -107,14 +124,17 @@ class UpdateManager {
   }) async {
     _lastUpdateType = type;
 
-    // If Remote Config detected a patch, notify directly without rechecking
     if (source == UpdateSource.patch && patchNumber != null) {
-      // Directly notify that an update is available
-      await _handleShorebirdStatusChange(
-        status: ShorebirdUpdateStatus.updateAvailable,
-        type: type,
-        patchNumber: patchNumber,
-      );
+      if (enableShorebird &&
+          _shorebirdService != null &&
+          _shorebirdService!.isAvailable) {
+        await _handleShorebirdStatusChange(
+          status: ShorebirdUpdateStatus.idle,
+          type: type,
+          patchNumber: patchNumber,
+        );
+        await checkShorebirdPatch(track: _currentTrack);
+      }
     }
 
     if (onUpdate != null) {

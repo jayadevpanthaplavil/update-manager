@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:update_manager/update_manager.dart';
 
+const UpdateTrack kAppUpdateTrack = UpdateTrack.stable;
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
@@ -26,6 +28,7 @@ class MyApp extends StatelessWidget {
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
+
   final String title;
 
   @override
@@ -39,8 +42,7 @@ class _MyHomePageState extends State<MyHomePage> {
   int? _patchNumber;
   ShorebirdUpdateStatus _shorebirdStatus = ShorebirdUpdateStatus.idle;
   String? _errorMessage;
-  UpdateTrack _currentTrack = UpdateTrack.stable;
-  bool _isCheckingForUpdates = false;
+  UpdateTrack _currentTrack = kAppUpdateTrack;
   String _currentVersion = '';
   int? _currentPatchNumber;
 
@@ -52,7 +54,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<void> _initialize() async {
     final packageInfo = await PackageInfo.fromPlatform();
-
     setState(() {
       _currentVersion = packageInfo.version;
     });
@@ -60,84 +61,91 @@ class _MyHomePageState extends State<MyHomePage> {
     _updateManager = UpdateManager(
       enableShorebird: true,
       packageInfo: packageInfo,
-      onUpdate: ({
-        required UpdateType type,
-        UpdateSource source = UpdateSource.release,
-        int? patchNumber,
-      }) async {
-        if (!mounted) return;
-        setState(() {
-          _currentUpdateType = type;
-          _currentUpdateSource = source;
-          _patchNumber = patchNumber;
-        });
-        debugPrint(
-          "Update detected → Type: $type, Source: $source, Patch: $patchNumber",
-        );
-      },
-      onShorebirdStatusChange: ({
-        required ShorebirdUpdateStatus status,
-        UpdateType? type,
-        int? patchNumber,
-        String? errorMessage,
-      }) async {
-        if (!mounted) return;
-        setState(() {
-          _shorebirdStatus = status;
-          _errorMessage = errorMessage;
-          if (patchNumber != null) _patchNumber = patchNumber;
+      onUpdate:
+          ({
+            required UpdateType type,
+            UpdateSource source = UpdateSource.release,
+            int? patchNumber,
+          }) async {
+            if (!mounted) return;
 
-          // Reset checking flag when we get a final status
-          if (status != ShorebirdUpdateStatus.checking &&
-              status != ShorebirdUpdateStatus.downloading) {
-            _isCheckingForUpdates = false;
-          }
-        });
+            if (source == UpdateSource.release && type != UpdateType.none) {
+              await _checkShorebirdBeforePromptingUpdate(type, patchNumber);
+            } else {
+              setState(() {
+                _currentUpdateType = type;
+                _currentUpdateSource = source;
+                _patchNumber = patchNumber;
+              });
+            }
 
-        // Show appropriate UI based on status
-        _handleShorebirdStatus(status, errorMessage);
+            debugPrint(
+              "Update detected → Type: $type, Source: $source, Patch: $patchNumber",
+            );
+          },
+      onShorebirdStatusChange:
+          ({
+            required ShorebirdUpdateStatus status,
+            UpdateType? type,
+            int? patchNumber,
+            String? errorMessage,
+          }) async {
+            if (!mounted) return;
 
-        // If restart is required or checking, refresh current patch number
-        if (status == ShorebirdUpdateStatus.restartRequired ||
-            status == ShorebirdUpdateStatus.checking) {
-          _refreshCurrentPatch();
-        }
-      },
+            debugPrint(
+              "Shorebird Update detected → Status: $status, Error: $errorMessage, Patch: $patchNumber",
+            );
+
+            // Handle UI and update state
+            _handleShorebirdStatus(status, errorMessage);
+
+            setState(() {
+              _shorebirdStatus = status;
+              _errorMessage = errorMessage;
+              if (patchNumber != null) _patchNumber = patchNumber;
+            });
+
+            if (status == ShorebirdUpdateStatus.restartRequired ||
+                status == ShorebirdUpdateStatus.checking) {
+              _refreshCurrentPatch();
+            }
+          },
     );
 
     try {
       await _updateManager?.initialise(shorebirdTrack: _currentTrack);
-
-      // Read current installed patch
-      final installedPatch = await _updateManager?.shorebirdService?.readCurrentPatch();
+      final installedPatch = await _updateManager?.shorebirdService
+          ?.readCurrentPatch();
       if (mounted) {
         setState(() {
           _currentPatchNumber = installedPatch;
         });
-
-        // Show success message if patch was just applied
-        // if (installedPatch != null && installedPatch > 0) {
-        //   debugPrint('✅ Running on patch: $installedPatch');
-        //   Future.delayed(const Duration(seconds: 1), () {
-        //     if (mounted) {
-        //       ScaffoldMessenger.of(context).showSnackBar(
-        //         SnackBar(
-        //           content: Text('✅ Running on patch $installedPatch'),
-        //           backgroundColor: Colors.green,
-        //           duration: const Duration(seconds: 3),
-        //         ),
-        //       );
-        //     }
-        //   });
-        // }
       }
     } catch (e) {
       debugPrint("UpdateManager init error: $e");
     }
   }
 
+  Future<void> _checkShorebirdBeforePromptingUpdate(
+    UpdateType updateType,
+    int? patchNumber,
+  ) async {
+    await _updateManager?.checkShorebirdPatch(track: _currentTrack);
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    if (_shorebirdStatus == ShorebirdUpdateStatus.upToDate ||
+        _shorebirdStatus == ShorebirdUpdateStatus.unavailable) {
+      setState(() {
+        _currentUpdateType = updateType;
+        _currentUpdateSource = UpdateSource.release;
+        _patchNumber = patchNumber;
+      });
+    }
+  }
+
   Future<void> _refreshCurrentPatch() async {
-    final installedPatch = await _updateManager?.shorebirdService?.readCurrentPatch();
+    final installedPatch = await _updateManager?.shorebirdService
+        ?.readCurrentPatch();
     if (mounted) {
       setState(() {
         _currentPatchNumber = installedPatch;
@@ -145,7 +153,15 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  void _handleShorebirdStatus(ShorebirdUpdateStatus status, String? errorMessage) {
+  void _handleShorebirdStatus(
+    ShorebirdUpdateStatus status,
+    String? errorMessage,
+  ) {
+    debugPrint(
+      '_handleShorebirdStatus → Status: $status, Error: $errorMessage',
+    );
+
+    // Hide current banner first
     ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
 
     switch (status) {
@@ -165,13 +181,11 @@ class _MyHomePageState extends State<MyHomePage> {
         _showUpToDateBanner();
         break;
       case ShorebirdUpdateStatus.unavailable:
-      // Already shown in build method
         break;
       case ShorebirdUpdateStatus.error:
         _showErrorBanner(errorMessage ?? 'Unknown error');
         break;
       case ShorebirdUpdateStatus.idle:
-      // Do nothing
         break;
     }
   }
@@ -199,7 +213,9 @@ class _MyHomePageState extends State<MyHomePage> {
           TextButton(
             onPressed: () async {
               ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
-              await _updateManager?.downloadShorebirdPatch(track: _currentTrack);
+              await _updateManager?.downloadShorebirdPatch(
+                track: _currentTrack,
+              );
             },
             child: const Text('Download'),
           ),
@@ -235,8 +251,8 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: Colors.green.shade100,
         content: const Text(
           'Patch downloaded successfully!\n'
-              '⚠️ You must close and reopen the app to apply the patch.\n'
-              'Hot restart will NOT work.',
+          '⚠️ You must close and reopen the app to apply the patch.\n'
+          'Hot restart will NOT work.',
         ),
         actions: [
           TextButton(
@@ -253,7 +269,9 @@ class _MyHomePageState extends State<MyHomePage> {
   void _showUpToDateBanner() {
     ScaffoldMessenger.of(context).showMaterialBanner(
       MaterialBanner(
-        content: Text('No update available on the ${_currentTrack.name} track.'),
+        content: Text(
+          'No update available on the ${_currentTrack.name} track.',
+        ),
         actions: [
           TextButton(
             onPressed: () {
@@ -284,25 +302,21 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _checkForUpdate() async {
-    if (_isCheckingForUpdates) return;
-
-    setState(() => _isCheckingForUpdates = true);
+    if (_shorebirdStatus == ShorebirdUpdateStatus.checking) return;
 
     try {
       await _updateManager?.checkShorebirdPatch(track: _currentTrack);
     } catch (e) {
       debugPrint('Error checking for update: $e');
-      if (mounted) {
-        setState(() => _isCheckingForUpdates = false);
-      }
     }
-    // Note: _isCheckingForUpdates will be reset to false in the status callback
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isUpdaterUnavailable = _shorebirdStatus == ShorebirdUpdateStatus.unavailable;
+    final isUpdaterUnavailable =
+        _shorebirdStatus == ShorebirdUpdateStatus.unavailable &&
+        (_updateManager?.enableShorebird ?? false);
 
     return Scaffold(
       appBar: AppBar(
@@ -318,8 +332,8 @@ class _MyHomePageState extends State<MyHomePage> {
               color: Colors.red.shade100,
               child: Text(
                 'Shorebird is not available.\n'
-                    'Please ensure the app was built with `shorebird release`\n'
-                    'and is running in release mode.',
+                'Please ensure the app was built with `shorebird release`\n'
+                'and is running in release mode.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: Colors.red.shade900,
                 ),
@@ -332,7 +346,6 @@ class _MyHomePageState extends State<MyHomePage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Current Version & Patch Info
                 Card(
                   color: Theme.of(context).colorScheme.primaryContainer,
                   child: Padding(
@@ -358,11 +371,14 @@ class _MyHomePageState extends State<MyHomePage> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              _shorebirdStatus == ShorebirdUpdateStatus.restartRequired
+                              _shorebirdStatus ==
+                                      ShorebirdUpdateStatus.restartRequired
                                   ? Icons.warning_amber
                                   : Icons.info_outline,
                               size: 20,
-                              color: _shorebirdStatus == ShorebirdUpdateStatus.restartRequired
+                              color:
+                                  _shorebirdStatus ==
+                                      ShorebirdUpdateStatus.restartRequired
                                   ? Colors.orange
                                   : null,
                             ),
@@ -375,7 +391,8 @@ class _MyHomePageState extends State<MyHomePage> {
                             ),
                           ],
                         ),
-                        if (_shorebirdStatus == ShorebirdUpdateStatus.restartRequired &&
+                        if (_shorebirdStatus ==
+                                ShorebirdUpdateStatus.restartRequired &&
                             _patchNumber != null &&
                             _patchNumber != _currentPatchNumber) ...[
                           const SizedBox(height: 8),
@@ -425,56 +442,24 @@ class _MyHomePageState extends State<MyHomePage> {
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                const Text(
-                  'Update Track:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                SegmentedButton<UpdateTrack>(
-                  segments: const [
-                    ButtonSegment(
-                      label: Text('Stable'),
-                      value: UpdateTrack.stable,
-                    ),
-                    ButtonSegment(
-                      label: Text('Beta'),
-                      icon: Icon(Icons.science, size: 16),
-                      value: UpdateTrack.beta,
-                    ),
-                    ButtonSegment(
-                      label: Text('Staging'),
-                      icon: Icon(Icons.construction, size: 16),
-                      value: UpdateTrack.staging,
-                    ),
-                  ],
-                  selected: {_currentTrack},
-                  onSelectionChanged: (tracks) {
-                    setState(() => _currentTrack = tracks.single);
-                  },
-                ),
-              ],
-            ),
-          ),
           const Spacer(),
           const SizedBox(height: 16),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _isCheckingForUpdates ? null : _checkForUpdate,
+      floatingActionButton: (_shorebirdStatus != ShorebirdUpdateStatus.checking) ?  FloatingActionButton.extended(
+        onPressed: (_shorebirdStatus == ShorebirdUpdateStatus.checking)
+            ? null
+            : _checkForUpdate,
         tooltip: 'Check for update',
-        icon: _isCheckingForUpdates
+        icon: (_shorebirdStatus == ShorebirdUpdateStatus.checking)
             ? const SizedBox(
-          height: 20,
-          width: 20,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        )
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
             : const Icon(Icons.refresh),
         label: const Text('Check Update'),
-      ),
+      ) : null,
     );
   }
 
@@ -518,10 +503,7 @@ class _StatusCard extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              '$title:',
-              style: theme.textTheme.bodyLarge,
-            ),
+            Text('$title:', style: theme.textTheme.bodyLarge),
             Text(
               value,
               style: theme.textTheme.bodyLarge?.copyWith(

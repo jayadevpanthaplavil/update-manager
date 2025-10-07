@@ -1,8 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:shorebird_code_push/shorebird_code_push.dart';
+
 import '../enums/shorebird_update_status.dart';
-import '../update_manager.dart';
-import '../enums/update_source.dart';
 import '../enums/update_type.dart';
 
 typedef ShorebirdStatusCallback = Future<void> Function({
@@ -14,6 +13,8 @@ typedef ShorebirdStatusCallback = Future<void> Function({
 
 class ShorebirdService {
   final ShorebirdUpdater _updater = ShorebirdUpdater();
+  bool _isChecking = false;
+  bool _isDownloading = false;
 
   bool get isAvailable => _updater.isAvailable;
 
@@ -31,6 +32,15 @@ class ShorebirdService {
     required UpdateTrack track,
     required ShorebirdStatusCallback onStatusChange,
   }) async {
+    // Prevent concurrent checks
+    if (_isChecking) {
+      debugPrint(
+          'Shorebird check already in progress, ignoring duplicate request');
+      return;
+    }
+
+    _isChecking = true;
+
     try {
       await onStatusChange(status: ShorebirdUpdateStatus.checking);
 
@@ -72,6 +82,8 @@ class ShorebirdService {
         type: UpdateType.none,
         errorMessage: e.toString(),
       );
+    } finally {
+      _isChecking = false;
     }
   }
 
@@ -80,6 +92,15 @@ class ShorebirdService {
     required UpdateTrack track,
     required ShorebirdStatusCallback onStatusChange,
   }) async {
+    // Prevent concurrent downloads
+    if (_isDownloading) {
+      debugPrint(
+          'Shorebird download already in progress, ignoring duplicate request');
+      return;
+    }
+
+    _isDownloading = true;
+
     try {
       await onStatusChange(status: ShorebirdUpdateStatus.downloading);
 
@@ -105,6 +126,8 @@ class ShorebirdService {
         type: UpdateType.none,
         errorMessage: e.toString(),
       );
+    } finally {
+      _isDownloading = false;
     }
   }
 }

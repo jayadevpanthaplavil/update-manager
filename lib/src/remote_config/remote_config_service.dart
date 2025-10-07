@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shorebird_code_push/shorebird_code_push.dart';
 import 'package:update_manager/src/shorebird/shorebird_service.dart';
 import '../enums/update_source.dart';
 import '../update_manager.dart';
@@ -14,6 +15,7 @@ class RemoteConfigService {
   final PackageInfo _packageInfo;
   final UpdateManagerCallback? onUpdate;
   final ShorebirdService? shorebirdService;
+  UpdateTrack _currentTrack = UpdateTrack.stable;
 
   UpdateType _lastUpdateType = UpdateType.none;
   UpdateType get updateTypeStatus => _lastUpdateType;
@@ -21,10 +23,13 @@ class RemoteConfigService {
   RemoteConfigService({
     required PackageInfo packageInfo,
     this.onUpdate,
-    this.shorebirdService
+    this.shorebirdService,
   }) : _packageInfo = packageInfo;
 
-  Future<void> initialiseAndCheck() async {
+  Future<void> initialiseAndCheck(
+      {UpdateTrack track = UpdateTrack.stable}) async {
+    _currentTrack = track;
+
     try {
       await _remoteConfig.setConfigSettings(RemoteConfigSettings(
         fetchTimeout: const Duration(minutes: 1),
@@ -54,24 +59,28 @@ class RemoteConfigService {
   Future<void> _handleUpdateCheck() async {
     final currentVersion = _packageInfo.version;
     final minRequired =
-    _remoteConfig.getString(RemoteConfigVariables.minRequiredVersion);
-    final latest =
-    _remoteConfig.getString(RemoteConfigVariables.latestVersion);
+        _remoteConfig.getString(RemoteConfigVariables.minRequiredVersion);
+    final latest = _remoteConfig.getString(RemoteConfigVariables.latestVersion);
     final patchEnabled =
-    _remoteConfig.getBool(RemoteConfigVariables.patchEnabled);
-    final patchesJson = _remoteConfig.getString(RemoteConfigVariables.patchInfo);
+        _remoteConfig.getBool(RemoteConfigVariables.patchEnabled);
+    final patchesJson =
+        _remoteConfig.getString(RemoteConfigVariables.patchInfo);
 
     final updateType =
-    VersionCompare.getUpdateType(currentVersion, minRequired, latest);
+        VersionCompare.getUpdateType(currentVersion, minRequired, latest);
 
     UpdateSource source = UpdateSource.release;
     int? patchNumber;
     int? currentPatchNumber;
 
-    if (patchEnabled && patchesJson != null && patchesJson.isNotEmpty) {
-      patchNumber = _getPatchNumberFromJson(patchesJson, currentVersion);
+    if (patchEnabled && shorebirdService != null && patchesJson.isNotEmpty) {
+      patchNumber =
+          _getPatchNumberFromJson(patchesJson, currentVersion, _currentTrack);
       currentPatchNumber = await shorebirdService?.readCurrentPatch();
-      if (patchNumber != null && patchNumber > 0 && patchNumber != currentPatchNumber) {
+
+      if (patchNumber != null &&
+          patchNumber > 0 &&
+          patchNumber != currentPatchNumber) {
         source = UpdateSource.patch;
       }
     }
@@ -87,19 +96,25 @@ class RemoteConfigService {
     }
   }
 
-  int? _getPatchNumberFromJson(String? patchesJson, String currentVersion) {
+  int? _getPatchNumberFromJson(
+      String? patchesJson, String currentVersion, UpdateTrack track) {
     if (patchesJson == null || patchesJson.isEmpty) return null;
 
     try {
-      // Direct decode since Firebase returns JSON correctly
       final Map<String, dynamic> versionMap = jsonDecode(patchesJson);
       debugPrint("Patch map: $versionMap");
 
-      return versionMap[currentVersion] as int?;
+      final versionData = versionMap[currentVersion];
+      if (versionData == null) return null;
+
+      if (versionData is Map<String, dynamic>) {
+        return versionData[track.name] as int?;
+      }
+
+      return versionData as int?;
     } catch (e) {
       debugPrint("Patch parse error: $e");
       return null;
     }
   }
-
 }
