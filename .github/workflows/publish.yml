@@ -3,78 +3,12 @@ name: Publish to pub.dev
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+*' # matches v1.2.3 ; must align with tag-pattern on pub.dev (v{{version}})
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
 
 jobs:
   publish:
-    name: Publish package (tag → only if on main)
-    runs-on: ubuntu-latest
     permissions:
-      contents: read
-      id-token: write # required for OIDC-based auth to pub.dev
-    environment: pub.dev # include only if you've required a GitHub environment named "pub.dev" on pub.dev
-
-    steps:
-      - name: Checkout (fetch full history & tags)
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Print context (debug)
-        run: |
-          echo "GITHUB_REF = $GITHUB_REF"
-          echo "GITHUB_SHA = $GITHUB_SHA"
-
-      - name: Ensure pubspec version matches tag
-        id: check_version
-        run: |
-          TAG=${GITHUB_REF#refs/tags/}
-          echo "Tag: $TAG"
-          # read version from pubspec.yaml, strip build metadata (+...) and optional quotes/spaces
-          VERSION_RAW=$(grep '^version:' pubspec.yaml | sed 's/version:[[:space:]]*//' | tr -d '"')
-          VERSION=$(echo "$VERSION_RAW" | sed 's/+.*//; s/[[:space:]]//g')
-          echo "pubspec version: $VERSION"
-          if [ "$TAG" = "v$VERSION" ] || [ "$TAG" = "$VERSION" ]; then
-            echo "Tag matches pubspec version"
-          else
-            echo "ERROR: Tag ($TAG) does not match pubspec.yaml version ($VERSION)"
-            exit 1
-          fi
-
-      - name: Ensure tag commit is on origin/main
-        run: |
-          # Fetch remote main and ensure tag commit sha is contained in it.
-          git fetch origin main:refs/remotes/origin/main
-          TAG_COMMIT=${GITHUB_SHA}
-          echo "Tag commit sha: $TAG_COMMIT"
-          if git branch --remote --contains "$TAG_COMMIT" | grep -q 'origin/main'; then
-            echo "Tag commit is contained in origin/main → OK"
-          else
-            echo "ERROR: Tag commit is NOT contained in origin/main."
-            echo "Make sure you create the tag on a commit that is on main or merge main into the commit before tagging."
-            exit 1
-          fi
-
-      - name: Set Up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.35.4'
-          channel: 'stable'
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Analyze
-        run: flutter analyze
-
-      - name: Format code
-        run: dart format .
-
-#      - name: Run tests
-#        run: flutter test
-
-      - name: Check Publish Warnings (dry-run)
-        run: dart pub publish --dry-run
-
-      - name: Publish to pub.dev
-        run: flutter pub publish --force
+      id-token: write
+    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    with:
+      environment: 'pub.dev'
