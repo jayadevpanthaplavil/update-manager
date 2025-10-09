@@ -1,6 +1,6 @@
 name: update_manager
 description: "A Flutter package to manage app updates with Firebase Remote Config and Shorebird, supporting force, optional, and patch updates easily."
-version: 1.1.0
+version: 1.1.1
 homepage: "https://github.com/jayadevpanthaplavil/update-manager"
 repository: "https://github.com/jayadevpanthaplavil/update-manager"
 issue_tracker: "https://github.com/jayadevpanthaplavil/update-manager/issues"
