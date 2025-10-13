@@ -12,15 +12,15 @@ class VersionCompare {
     return UpdateType.none;
   }
 
-  static int _compareVersions(String v1, String v2) {
-    final v1Parts = v1.split('.').map(int.parse).toList();
-    final v2Parts = v2.split('.').map(int.parse).toList();
-    final maxLength = v1Parts.length > v2Parts.length ? v1Parts.length : v2Parts.length;
+  static int _compareVersion(String v1, String v2) {
+    final v1Parts = v1.split('.').map(BigInt.parse).toList();
+    final v2Parts = v2.split('.').map(BigInt.parse).toList();
+    final maxLength =
+        v1Parts.length > v2Parts.length ? v1Parts.length : v2Parts.length;
 
     for (int i = 0; i < maxLength; i++) {
-      final v1Part = i < v1Parts.length ? v1Parts[i] : 0;
-      final v2Part = i < v2Parts.length ? v2Parts[i] : 0;
-
+      final v1Part = i < v1Parts.length ? v1Parts[i] : BigInt.zero;
+      final v2Part = i < v2Parts.length ? v2Parts[i] : BigInt.zero;
       if (v1Part > v2Part) return 1;
       if (v1Part < v2Part) return -1;
     }
