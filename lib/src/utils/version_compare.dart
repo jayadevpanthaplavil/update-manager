@@ -12,7 +12,7 @@ class VersionCompare {
     return UpdateType.none;
   }
 
-  static int _compareVersion(String v1, String v2) {
+  static int _compareVersions(String v1, String v2) {
     final v1Parts = v1.split('.').map(BigInt.parse).toList();
     final v2Parts = v2.split('.').map(BigInt.parse).toList();
     final maxLength =
