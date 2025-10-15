@@ -116,6 +116,7 @@ class UpdateUIHandler {
     // Give the navigator time to process the pop
     await Future.delayed(const Duration(milliseconds: 100));
 
+    if (!context.mounted) return;
     final isAndroid = Theme.of(context).platform == TargetPlatform.android;
     final isForceUpdate = type == UpdateType.force;
 
@@ -255,7 +256,6 @@ class UpdateUIHandler {
 
     _activeUIComponents.remove(_storeUpdateDialogKey);
   }
-
 
   Future<void> _showMaterialOptionalUpdateDialog() async {
     _activeUIComponents[_storeUpdateDialogKey] = true;
