@@ -30,13 +30,19 @@ class UpdateManager {
   final UpdateUIConfig? uiConfig;
   final BuildContext? context;
 
-  late final RemoteConfigService _remoteConfigService;
+  // No longer creating a new instance - using singleton
+  RemoteConfigService get _remoteConfigService => RemoteConfigService.instance;
+
   final ShorebirdService? _shorebirdService;
   UpdateUIHandler? _uiHandler;
 
   UpdateTrack _currentTrack = UpdateTrack.stable;
   UpdateType _lastUpdateType = UpdateType.none;
-  UpdateType get updateTypeStatus => _lastUpdateType;
+
+  // Get update status from RemoteConfigService singleton
+  UpdateType get updateTypeStatus => _remoteConfigService.isInitialized
+      ? _remoteConfigService.updateTypeStatus
+      : _lastUpdateType;
 
   ShorebirdUpdateStatus _shorebirdStatus = ShorebirdUpdateStatus.idle;
   ShorebirdUpdateStatus get shorebirdStatus => _shorebirdStatus;
@@ -52,11 +58,8 @@ class UpdateManager {
     this.context,
   })  : _packageInfo = packageInfo,
         _shorebirdService = enableShorebird ? ShorebirdService() : null {
-    _remoteConfigService = RemoteConfigService(
-      packageInfo: _packageInfo,
-      onUpdate: _handleUpdateCallback,
-      shorebirdService: _shorebirdService,
-    );
+    // Initialize the singleton RemoteConfigService
+    _initializeRemoteConfig();
 
     if (context != null && uiConfig != null) {
       _uiHandler = UpdateUIHandler(
@@ -67,9 +70,27 @@ class UpdateManager {
     }
   }
 
+  Future<void> _initializeRemoteConfig() async {
+    if (!_remoteConfigService.isInitialized) {
+      await _remoteConfigService.initialize(
+        packageInfo: _packageInfo,
+        onUpdate: _handleUpdateCallback,
+        shorebirdService: _shorebirdService,
+      );
+    } else {
+      // If already initialized, just update the callback
+      _remoteConfigService.onUpdate = _handleUpdateCallback;
+      _remoteConfigService.shorebirdService = _shorebirdService;
+    }
+  }
+
   Future<void> initialise(
       {UpdateTrack shorebirdTrack = UpdateTrack.stable}) async {
     _currentTrack = shorebirdTrack;
+
+    // Ensure RemoteConfigService is initialized
+    await _initializeRemoteConfig();
+
     await _remoteConfigService.initialiseAndCheck(track: _currentTrack);
     // Remote config will trigger Shorebird check if patch update is available
   }

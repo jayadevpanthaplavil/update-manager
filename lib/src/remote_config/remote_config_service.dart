@@ -11,23 +11,56 @@ import '../utils/version_compare.dart';
 import 'remote_config_variables.dart';
 
 class RemoteConfigService {
+  static RemoteConfigService? _instance;
+
   final FirebaseRemoteConfig _remoteConfig = FirebaseRemoteConfig.instance;
-  final PackageInfo _packageInfo;
-  final UpdateManagerCallback? onUpdate;
-  final ShorebirdService? shorebirdService;
+  late final PackageInfo _packageInfo;
+  UpdateManagerCallback? onUpdate;
+  ShorebirdService? shorebirdService;
   UpdateTrack _currentTrack = UpdateTrack.stable;
 
   UpdateType _lastUpdateType = UpdateType.none;
   UpdateType get updateTypeStatus => _lastUpdateType;
 
-  RemoteConfigService({
+  bool _isInitialized = false;
+  bool get isInitialized => _isInitialized;
+
+  // Private constructor
+  RemoteConfigService._();
+
+  // Factory constructor to return singleton instance
+  factory RemoteConfigService() {
+    _instance ??= RemoteConfigService._();
+    return _instance!;
+  }
+
+  // Static getter for easy access
+  static RemoteConfigService get instance => RemoteConfigService();
+
+  // Initialize method (must be called before use)
+  Future<void> initialize({
     required PackageInfo packageInfo,
-    this.onUpdate,
-    this.shorebirdService,
-  }) : _packageInfo = packageInfo;
+    UpdateManagerCallback? onUpdate,
+    ShorebirdService? shorebirdService,
+  }) async {
+    if (_isInitialized) {
+      debugPrint("RemoteConfigService already initialized");
+      return;
+    }
+
+    _packageInfo = packageInfo;
+    this.onUpdate = onUpdate;
+    this.shorebirdService = shorebirdService;
+    _isInitialized = true;
+  }
 
   Future<void> initialiseAndCheck(
       {UpdateTrack track = UpdateTrack.stable}) async {
+    if (!_isInitialized) {
+      throw StateError(
+          "RemoteConfigService must be initialized before calling initialiseAndCheck");
+    }
+
     _currentTrack = track;
 
     try {
@@ -47,16 +80,16 @@ class RemoteConfigService {
 
       _remoteConfig.onConfigUpdated.listen((_) async {
         await _remoteConfig.fetchAndActivate();
-        await _handleUpdateCheck();
+        await handleUpdateCheck();
       });
 
-      await _handleUpdateCheck();
+      await handleUpdateCheck();
     } catch (e) {
       debugPrint("RemoteConfigService init error: $e");
     }
   }
 
-  Future<void> _handleUpdateCheck() async {
+  Future<void> handleUpdateCheck() async {
     final currentVersion = _packageInfo.version;
     final minRequired =
         _remoteConfig.getString(RemoteConfigVariables.minRequiredVersion);

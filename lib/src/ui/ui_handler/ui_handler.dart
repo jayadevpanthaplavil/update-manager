@@ -188,24 +188,56 @@ class UpdateUIHandler {
     }
   }
 
+  // Future<void> _showMaterialForceUpdateDialog() async {
+  //   _activeUIComponents[_storeUpdateDialogKey] = true;
+  //
+  //   await showDialog<void>(
+  //     context: context,
+  //     barrierDismissible: false,
+  //     builder: (BuildContext dialogContext) => WillPopScope(
+  //       onWillPop: () async => false,
+  //       child: AlertDialog(
+  //         title: const Text('Update Required'),
+  //         content: const Text(
+  //           'This version is no longer supported. Please update the app to continue using it.',
+  //         ),
+  //         actions: [
+  //           // TextButton(
+  //           //   onPressed: () => _exitApp(),
+  //           //   child: const Text('Exit App', style: TextStyle(color: Colors.red)),
+  //           // ),
+  //           FilledButton(
+  //             onPressed: () async {
+  //               _activeUIComponents.remove(_storeUpdateDialogKey);
+  //               if (dialogContext.mounted) {
+  //                 Navigator.of(dialogContext).pop();
+  //               }
+  //               await _navigateToStore();
+  //             },
+  //             child: const Text('Update Now'),
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  //
+  //   _activeUIComponents.remove(_storeUpdateDialogKey);
+  // }
+
   Future<void> _showMaterialForceUpdateDialog() async {
     _activeUIComponents[_storeUpdateDialogKey] = true;
 
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext dialogContext) => WillPopScope(
-        onWillPop: () async => false,
+      builder: (BuildContext dialogContext) => PopScope(
+        canPop: false,
         child: AlertDialog(
           title: const Text('Update Required'),
           content: const Text(
             'This version is no longer supported. Please update the app to continue using it.',
           ),
           actions: [
-            // TextButton(
-            //   onPressed: () => _exitApp(),
-            //   child: const Text('Exit App', style: TextStyle(color: Colors.red)),
-            // ),
             FilledButton(
               onPressed: () async {
                 _activeUIComponents.remove(_storeUpdateDialogKey);
@@ -223,6 +255,7 @@ class UpdateUIHandler {
 
     _activeUIComponents.remove(_storeUpdateDialogKey);
   }
+
 
   Future<void> _showMaterialOptionalUpdateDialog() async {
     _activeUIComponents[_storeUpdateDialogKey] = true;
@@ -730,7 +763,7 @@ class UpdateUIHandler {
           children: [
             CupertinoActivityIndicator(),
             SizedBox(width: 12),
-            Expanded(child: Text( 'Hang tight, downloading update...')),
+            Expanded(child: Text('Hang tight, downloading update...')),
           ],
         );
 
@@ -752,7 +785,7 @@ class UpdateUIHandler {
             ),
             const SizedBox(height: 8),
             const Text(
-                'Download complete. Please restart the app to finish updating.',
+              'Download complete. Please restart the app to finish updating.',
             ),
             const SizedBox(height: 12),
             Row(
@@ -905,6 +938,22 @@ class UpdateUIHandler {
         ),
       );
     }
+
+    // After returning from the store, recheck the update.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _waitForAppResumed();
+    });
+  }
+
+  void _waitForAppResumed() {
+    WidgetsBinding.instance.addObserver(
+      _AppLifecycleObserver(
+        onResumed: () async {
+          final remoteConfigService = RemoteConfigService.instance;
+          await remoteConfigService.handleUpdateCheck();
+        },
+      ),
+    );
   }
 
   // ============ EXIT APP ============
@@ -912,4 +961,18 @@ class UpdateUIHandler {
   // void _exitApp() {
   //   exit(0);
   // }
+}
+
+class _AppLifecycleObserver extends WidgetsBindingObserver {
+  final Future<void> Function() onResumed;
+
+  _AppLifecycleObserver({required this.onResumed});
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      WidgetsBinding.instance.removeObserver(this);
+      onResumed();
+    }
+  }
 }
