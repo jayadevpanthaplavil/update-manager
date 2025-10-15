@@ -2,7 +2,7 @@
   "parameters": {
     "patch_info": {
       "defaultValue": {
-        "value": "{ \"1.0.25\": { \"stable\": 1, \"beta\":0, \"staging\": 0 }, \"1.0.1\": { \"stable\": 1, \"beta\": 2, \"staging\": 3 } }"
+        "value": "{ \"1.0.25\": { \"stable\": 1, \"beta\": 0, \"staging\": 0 }, \"1.0.1\": { \"stable\": 1, \"beta\": 2, \"staging\": 3 } }"
       },
       "description": "Patch numbers per version and track. Format: { \"version\": { \"track\": patchNumber } }",
       "valueType": "STRING"
@@ -12,20 +12,20 @@
         "value": "true"
       },
       "description": "Global flag to enable/disable patch checking",
-      "valueType": "STRING"
+      "valueType": "BOOLEAN"
     },
     "min_required_version": {
       "defaultValue": {
-        "value": "1.0.0"
+        "value": "{\"stable\": \"1.0.0\", \"beta\": \"1.0.5\", \"staging\": \"1.0.10\"}"
       },
-      "description": "Minimum app version required to use the app",
+      "description": "Minimum app version required per track. JSON {\"stable\": \"1.0.0\", \"beta\": \"1.0.5\"}",
       "valueType": "STRING"
     },
     "latest_version": {
       "defaultValue": {
-        "value": "1.0.29"
+        "value": "{\"stable\": \"1.0.29\", \"beta\": \"1.0.30\", \"staging\": \"1.0.31\"}"
       },
-      "description": "Latest available version in stores",
+      "description": "Latest available version per track. JSON {\"stable\": \"1.0.29\", \"beta\": \"1.0.30\"}",
       "valueType": "STRING"
     }
   }

@@ -11,23 +11,56 @@ import '../utils/version_compare.dart';
 import 'remote_config_variables.dart';
 
 class RemoteConfigService {
+  static RemoteConfigService? _instance;
+
   final FirebaseRemoteConfig _remoteConfig = FirebaseRemoteConfig.instance;
-  final PackageInfo _packageInfo;
-  final UpdateManagerCallback? onUpdate;
-  final ShorebirdService? shorebirdService;
-  UpdateTrack _currentTrack = UpdateTrack.stable;
+  late final PackageInfo _packageInfo;
+  UpdateManagerCallback? onUpdate;
+  ShorebirdService? shorebirdService;
+  UpdateTrackType _currentTrack = UpdateTrackType.stable;
 
   UpdateType _lastUpdateType = UpdateType.none;
   UpdateType get updateTypeStatus => _lastUpdateType;
 
-  RemoteConfigService({
+  bool _isInitialized = false;
+  bool get isInitialized => _isInitialized;
+
+  // Private constructor
+  RemoteConfigService._();
+
+  // Factory constructor to return singleton instance
+  factory RemoteConfigService() {
+    _instance ??= RemoteConfigService._();
+    return _instance!;
+  }
+
+  // Static getter for easy access
+  static RemoteConfigService get instance => RemoteConfigService();
+
+  // Initialize method (must be called before use)
+  Future<void> initialize({
     required PackageInfo packageInfo,
-    this.onUpdate,
-    this.shorebirdService,
-  }) : _packageInfo = packageInfo;
+    UpdateManagerCallback? onUpdate,
+    ShorebirdService? shorebirdService,
+  }) async {
+    if (_isInitialized) {
+      debugPrint("RemoteConfigService already initialized");
+      return;
+    }
+
+    _packageInfo = packageInfo;
+    this.onUpdate = onUpdate;
+    this.shorebirdService = shorebirdService;
+    _isInitialized = true;
+  }
 
   Future<void> initialiseAndCheck(
-      {UpdateTrack track = UpdateTrack.stable}) async {
+      {UpdateTrackType track = UpdateTrackType.stable}) async {
+    if (!_isInitialized) {
+      throw StateError(
+          "RemoteConfigService must be initialized before calling initialiseAndCheck");
+    }
+
     _currentTrack = track;
 
     try {
@@ -47,20 +80,32 @@ class RemoteConfigService {
 
       _remoteConfig.onConfigUpdated.listen((_) async {
         await _remoteConfig.fetchAndActivate();
-        await _handleUpdateCheck();
+        await handleUpdateCheck();
       });
 
-      await _handleUpdateCheck();
+      await handleUpdateCheck();
     } catch (e) {
       debugPrint("RemoteConfigService init error: $e");
     }
   }
 
-  Future<void> _handleUpdateCheck() async {
+  Future<void> handleUpdateCheck() async {
     final currentVersion = _packageInfo.version;
-    final minRequired =
-        _remoteConfig.getString(RemoteConfigVariables.minRequiredVersion);
-    final latest = _remoteConfig.getString(RemoteConfigVariables.latestVersion);
+
+    // Get track-specific versions
+    final minRequired = _getVersionForTrack(
+      RemoteConfigVariables.minRequiredVersion,
+      _currentTrack,
+    );
+    final latest = _getVersionForTrack(
+      RemoteConfigVariables.latestVersion,
+      _currentTrack,
+    );
+
+    debugPrint("Track: ${_currentTrack.name}");
+    debugPrint(
+        "Current: $currentVersion, MinRequired: $minRequired, Latest: $latest");
+
     final patchEnabled =
         _remoteConfig.getBool(RemoteConfigVariables.patchEnabled);
     final patchesJson =
@@ -74,8 +119,8 @@ class RemoteConfigService {
     int? currentPatchNumber;
 
     if (patchEnabled && shorebirdService != null && patchesJson.isNotEmpty) {
-      patchNumber =
-          _getPatchNumberFromJson(patchesJson, currentVersion, _currentTrack);
+      patchNumber = _getPatchNumberFromJson(
+          patchesJson, currentVersion, _currentTrack.toShorebirdUpdateTrack());
       currentPatchNumber = await shorebirdService?.readCurrentPatch();
 
       if (patchNumber != null &&
@@ -96,6 +141,44 @@ class RemoteConfigService {
     }
   }
 
+  /// Gets version string for the current track from Remote Config
+  /// Supports both simple string format and track-specific JSON format
+  String _getVersionForTrack(String configKey, UpdateTrackType track) {
+    final configValue = _remoteConfig.getString(configKey);
+
+    if (configValue.isEmpty) {
+      return _packageInfo.version;
+    }
+
+    // Try to parse as JSON first
+    try {
+      final dynamic parsed = jsonDecode(configValue);
+
+      // If it's a Map, look for track-specific version
+      if (parsed is Map<String, dynamic>) {
+        final trackVersion = parsed[track.name];
+
+        if (trackVersion != null && trackVersion is String) {
+          return trackVersion;
+        }
+
+        // Fallback to 'stable' if current track not found
+        final stableVersion = parsed['stable'];
+        if (stableVersion != null && stableVersion is String) {
+          debugPrint(
+              "Track '${track.name}' not found in $configKey, using stable");
+          return stableVersion;
+        }
+      }
+
+      // If parsed but not the expected format, treat as simple string
+      return configValue;
+    } catch (e) {
+      // Not JSON, treat as simple version string
+      return configValue;
+    }
+  }
+
   int? _getPatchNumberFromJson(
       String? patchesJson, String currentVersion, UpdateTrack track) {
     if (patchesJson == null || patchesJson.isEmpty) return null;
@@ -108,9 +191,18 @@ class RemoteConfigService {
       if (versionData == null) return null;
 
       if (versionData is Map<String, dynamic>) {
-        return versionData[track.name] as int?;
+        final trackPatch = versionData[track.name];
+        if (trackPatch != null) {
+          return trackPatch as int;
+        }
+
+        // Fallback to stable if track not found
+        debugPrint(
+            "Track '${track.name}' not found for version $currentVersion, checking stable");
+        return versionData['stable'] as int?;
       }
 
+      // Legacy format: direct integer
       return versionData as int?;
     } catch (e) {
       debugPrint("Patch parse error: $e");
