@@ -234,25 +234,26 @@ class _MyHomePageState extends State<MyHomePage> {
 
 ## ⚙️ Firebase Setup
 
-1. Enable **Remote Config** in Firebase Console.
-2. Add the following default parameters:
-3. See [`example/remoteconfig.template.json`](example/remoteconfig.template.json) for a sample.
+1. Enable **Remote Config** in your Firebase Console.
+2. Add the following default parameters and values.
+3. Refer to [`example/remoteconfig.template.json`](example/remoteconfig.template.json) for a complete example.
 
-| Key                    | Example Value | Description                                                                            |
-|------------------------|---------------|----------------------------------------------------------------------------------------|
-| `min_required_version` | `1.0.0`       | Minimum app version allowed                                                            |
-| `latest_version`       | `1.1.0`       | Latest available version                                                               |
-| `patch_enabled`        | `true`        | Enable/disable patch checking                                                          |
-| `patch_info`           | JSON string   | Patch numbers per version and track. Format: `{ "version": { "track": patchNumber } }` |
+| Key                    | Example Value                                                                                                 | Description                                                                                                          |
+|------------------------|---------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| `min_required_version` | `{"stable": "1.0.0", "beta": "1.0.5", "staging": "1.0.10"}`                                                   | Minimum app version required **per track**. JSON map of track versions (`{"stable": "1.0.0", "beta": "1.0.5"}`).     |
+| `latest_version`       | `{"stable": "1.0.29", "beta": "1.0.30", "staging": "1.0.31"}`                                                 | Latest available version **per track**. JSON map of track versions (`{"stable": "1.0.29", "beta": "1.0.30"}`).       |
+| `patch_enabled`        | `true`                                                                                                        | Global flag to enable or disable patch checking.                                                                     |
+| `patch_info`           | `{ "1.0.25": { "stable": 1, "beta": 0, "staging": 0 }, "1.0.1": { "stable": 1, "beta": 2, "staging": 3 } }`   | Patch numbers per version and track. The format is `{ "version": { "track": patchNumber } }`.                        |
 
 **Example `patch_info` value:**
 
 ```json
 {
-  "1.0.25": { "stable": 1, "beta":0, "staging": 0 },
+  "1.0.25": { "stable": 1, "beta": 0, "staging": 0 },
   "1.0.1": { "stable": 1, "beta": 2, "staging": 3 }
 }
 ```
+
 
 ---
 

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:update_manager/update_manager.dart';
 
-const UpdateTrack kAppUpdateTrack = UpdateTrack.stable;
+const UpdateTrackType kAppUpdateTrack = UpdateTrackType.stable;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,7 +38,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   UpdateManager? _updateManager;
-  final UpdateTrack _currentTrack = kAppUpdateTrack;
+  final UpdateTrackType _currentTrack = kAppUpdateTrack;
   String _currentVersion = '';
   int? _currentPatchNumber;
 
@@ -76,7 +76,7 @@ class _MyHomePageState extends State<MyHomePage> {
     );
 
     try {
-      await _updateManager?.initialise(shorebirdTrack: _currentTrack);
+      await _updateManager?.initialise(updateTrackType: _currentTrack);
       final installedPatch = await _updateManager?.shorebirdService
           ?.readCurrentPatch();
       if (mounted) {

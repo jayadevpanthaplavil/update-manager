@@ -1,6 +1,5 @@
 import 'package:flutter/widgets.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shorebird_code_push/shorebird_code_push.dart';
 import 'package:update_manager/src/ui/ui_handler/ui_handler.dart';
 
 import 'remote_config/remote_config_service.dart';
@@ -36,7 +35,7 @@ class UpdateManager {
   final ShorebirdService? _shorebirdService;
   UpdateUIHandler? _uiHandler;
 
-  UpdateTrack _currentTrack = UpdateTrack.stable;
+  UpdateTrackType currentTrackType = UpdateTrackType.stable;
   UpdateType _lastUpdateType = UpdateType.none;
 
   // Get update status from RemoteConfigService singleton
@@ -85,18 +84,18 @@ class UpdateManager {
   }
 
   Future<void> initialise(
-      {UpdateTrack shorebirdTrack = UpdateTrack.stable}) async {
-    _currentTrack = shorebirdTrack;
+      {UpdateTrackType updateTrackType = UpdateTrackType.stable}) async {
+    currentTrackType = updateTrackType;
 
     // Ensure RemoteConfigService is initialized
     await _initializeRemoteConfig();
 
-    await _remoteConfigService.initialiseAndCheck(track: _currentTrack);
+    await _remoteConfigService.initialiseAndCheck(track: currentTrackType);
     // Remote config will trigger Shorebird check if patch update is available
   }
 
   Future<void> checkShorebirdPatch(
-      {UpdateTrack track = UpdateTrack.stable}) async {
+      {UpdateTrackType track = UpdateTrackType.stable}) async {
     if (!enableShorebird ||
         _shorebirdService == null ||
         !_shorebirdService!.isAvailable) {
@@ -106,13 +105,13 @@ class UpdateManager {
     }
 
     await _shorebirdService!.checkForUpdate(
-      track: track,
+      track: track.toShorebirdUpdateTrack(),
       onStatusChange: _handleShorebirdStatusChange,
     );
   }
 
   Future<void> downloadShorebirdPatch(
-      {UpdateTrack track = UpdateTrack.stable}) async {
+      {UpdateTrackType track = UpdateTrackType.stable}) async {
     if (!enableShorebird ||
         _shorebirdService == null ||
         !_shorebirdService!.isAvailable) {
@@ -122,13 +121,13 @@ class UpdateManager {
     }
 
     await _shorebirdService!.downloadPatch(
-      track: track,
+      track: track.toShorebirdUpdateTrack(),
       onStatusChange: _handleShorebirdStatusChange,
     );
   }
 
   Future<void> _handleDownloadFromUI() async {
-    await downloadShorebirdPatch(track: _currentTrack);
+    await downloadShorebirdPatch(track: currentTrackType);
   }
 
   Future<void> _handleUpdateCallback({
@@ -147,7 +146,7 @@ class UpdateManager {
       if (enableShorebird &&
           _shorebirdService != null &&
           _shorebirdService!.isAvailable) {
-        await checkShorebirdPatch(track: _currentTrack);
+        await checkShorebirdPatch(track: currentTrackType);
         return; // Don't show store UI for patch updates
       }
     }
