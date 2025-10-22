@@ -141,25 +141,30 @@ class UpdateManager {
 
     _lastUpdateType = type;
 
-    // Only trigger Shorebird check if patch source
-    if (source == UpdateSource.patch && patchNumber != null) {
-      if (enableShorebird &&
-          _shorebirdService != null &&
-          _shorebirdService!.isAvailable) {
-        await checkShorebirdPatch(track: currentTrackType);
-        return; // Don't show store UI for patch updates
-      }
-    }
-
-    // Show store update UI
+    // --- Step 1: Handle store (release) updates first ---
     if (type != UpdateType.none) {
       if (onUpdate == null && _uiHandler != null) {
-        await _uiHandler!.handleStoreUpdate(type: type, source: source);
+        await _uiHandler!
+            .handleStoreUpdate(type: type, source: UpdateSource.release);
       }
 
       if (onUpdate != null) {
-        await onUpdate!(type: type, source: source, patchNumber: patchNumber);
+        await onUpdate!(
+            type: type, source: UpdateSource.release, patchNumber: patchNumber);
       }
+
+      // If it's a forced update, stop further checks (don’t continue to Shorebird)
+      if (type == UpdateType.force) return;
+    }
+
+    // --- Step 2: Only check Shorebird patch updates after handling store updates ---
+    if (enableShorebird &&
+        source == UpdateSource.patch &&
+        patchNumber != null &&
+        _shorebirdService != null &&
+        _shorebirdService!.isAvailable) {
+      await checkShorebirdPatch(track: currentTrackType);
+      return; // Don't show store UI for patch updates
     }
   }
 

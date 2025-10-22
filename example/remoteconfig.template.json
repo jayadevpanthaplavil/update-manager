@@ -27,6 +27,11 @@
       },
       "description": "Latest available version per track. JSON {\"stable\": \"1.0.29\", \"beta\": \"1.0.30\"}",
       "valueType": "STRING"
+    },
+    "redirect_url": {
+      "defaultValue": { "value": "{\"android\": {\"stable\": \"https://play.google.com/store/apps/details?id=com.example.stable\", \"beta\": \"https://play.google.com/store/apps/details?id=com.example.beta\", \"staging\": \"https://play.google.com/store/apps/details?id=com.example.staging\"}, \"ios\": {\"stable\": \"https://apps.apple.com/app/id1234567890\", \"beta\": \"https://apps.apple.com/app/id1234567891\", \"staging\": \"https://apps.apple.com/app/id1234567892\"}}" },
+      "description": "Redirection URLs for each platform and track. JSON {\"android\": {\"stable\": \"<url>\", ...}, \"ios\": {\"stable\": \"<url>\", ...}}",
+      "valueType": "STRING"
     }
   }
 }

@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+
+## [1.2.1] - 2025-10-22
+### Added
+- Support for separate redirection URL in Remote Config, allowing different URLs for update redirection based on configuration.
+
+### Fixed
+- Prioritized forced update handling over patch updates when the minimum version changes.
+- Ensured update check is triggered even when store navigation is skipped, improving reliability of update detection.
+
 ## [1.2.0] - 2025-10-15
 ### Added
 - Support for common update tracks: `stable`, `beta`, and `staging` for both release and patch updates.
