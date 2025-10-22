@@ -41,6 +41,9 @@ class UpdateUIHandler {
   static const String _patchBannerKey = 'patch_banner';
   static const String _patchOverlayKey = 'patch_overlay';
 
+  // Remote Config Service
+  final remoteConfigService = RemoteConfigService.instance;
+
   UpdateUIHandler({
     required this.context,
     required this.config,
@@ -920,36 +923,47 @@ class UpdateUIHandler {
 
   Future<void> _navigateToStore() async {
     final isAndroid = Theme.of(context).platform == TargetPlatform.android;
-    final url = isAndroid
-        ? config.androidPlayStoreUrl
-        : config.iosAppStoreUrl ?? config.iosTestFlightUrl;
+
+    final redirectUrl = remoteConfigService.getRedirectUrl();
+    final url = (redirectUrl.isEmpty)
+        ? (isAndroid
+            ? config.androidPlayStoreUrl
+            : config.iosAppStoreUrl ?? config.iosTestFlightUrl)
+        : redirectUrl;
 
     if (url != null && await canLaunchUrl(Uri.parse(url))) {
       await launchUrl(
         Uri.parse(url),
         mode: LaunchMode.externalApplication,
       );
+
+      // After returning from the store, recheck the update.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _waitForAppResumed();
+      });
     } else {
       debugPrint('Could not launch store URL: $url');
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not open store. Please update manually.'),
-        ),
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+            const SnackBar(
+              content: Text('Could not open store. Please update manually.'),
+            ),
+          )
+          .closed
+          .then(
+        (value) async {
+          // Immediately check for updates here since user didn't leave app
+          await remoteConfigService.handleUpdateCheck();
+        },
       );
     }
-
-    // After returning from the store, recheck the update.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _waitForAppResumed();
-    });
   }
 
   void _waitForAppResumed() {
     WidgetsBinding.instance.addObserver(
       _AppLifecycleObserver(
         onResumed: () async {
-          final remoteConfigService = RemoteConfigService.instance;
           await remoteConfigService.handleUpdateCheck();
         },
       ),

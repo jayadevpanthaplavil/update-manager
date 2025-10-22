@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -74,6 +75,18 @@ class RemoteConfigService {
         RemoteConfigVariables.latestVersion: _packageInfo.version,
         RemoteConfigVariables.patchEnabled: false,
         RemoteConfigVariables.patchInfo: '{}',
+        RemoteConfigVariables.redirectUrl: jsonEncode({
+          "android": {
+            "stable": "",
+            "beta": "",
+            "staging": "",
+          },
+          "ios": {
+            "stable": "",
+            "beta": "",
+            "staging": "",
+          },
+        }),
       });
 
       await _remoteConfig.fetchAndActivate();
@@ -207,6 +220,49 @@ class RemoteConfigService {
     } catch (e) {
       debugPrint("Patch parse error: $e");
       return null;
+    }
+  }
+
+  /// Get redirection URL for the current or specified track, platform-specific only
+  String getRedirectUrl({UpdateTrackType? track}) {
+    final configValue =
+        _remoteConfig.getString(RemoteConfigVariables.redirectUrl);
+
+    if (configValue.isEmpty) {
+      debugPrint("Redirect URL not found in Remote Config. Using default.");
+      return "";
+    }
+
+    try {
+      final dynamic parsed = jsonDecode(configValue);
+      final currentTrack = track ?? _currentTrack;
+
+      if (parsed is! Map<String, dynamic>) {
+        return "";
+      }
+
+      // Determine platform
+      final platformKey = Platform.isAndroid ? 'android' : 'ios';
+      final platformUrls = parsed[platformKey];
+
+      if (platformUrls is Map<String, dynamic>) {
+        final trackUrl = platformUrls[currentTrack.name];
+        if (trackUrl != null && trackUrl is String && trackUrl.isNotEmpty) {
+          return trackUrl;
+        } else {
+          // Platform exists but track URL not found
+          debugPrint(
+              "Track '${currentTrack.name}' not found for platform '$platformKey'");
+          return "";
+        }
+      }
+
+      // Platform not found
+      debugPrint("Platform '$platformKey' not found in redirect_url");
+      return "";
+    } catch (e) {
+      debugPrint("Redirect URL parse error: $e");
+      return "";
     }
   }
 }
